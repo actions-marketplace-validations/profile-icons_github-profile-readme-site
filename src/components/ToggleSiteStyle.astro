@@ -1,3 +1,13 @@
+---
+import { type ThemeModalTrans, themeModalSrc } from "../lib/i18n";
+
+interface Props {
+  translations?: ThemeModalTrans;
+}
+
+const { translations = themeModalSrc } = Astro.props;
+---
+
 <button
   id="site-style-toggle"
   type="button"
@@ -16,7 +26,7 @@
       stroke-linejoin="round"
       focusable="false"
     >
-      <title>Style layers</title>
+      <title data-i18n-style-layers>{translations.styleLayers}</title>
       <path d="m12 2 9 5-9 5-9-5 9-5Z" />
       <path d="m3 12 9 5 9-5" />
       <path d="m3 17 9 5 9-5" />
@@ -52,7 +62,7 @@ if (button instanceof HTMLButtonElement && dataElement) {
 
     const syncLabel = (): void => {
       const current: string = root.dataset.themeStyle ?? names[0] ?? "";
-      const label: string = `style: ${current.toLowerCase()}`;
+      const label: string = current.toLowerCase();
 
       button.setAttribute(
         "aria-label",

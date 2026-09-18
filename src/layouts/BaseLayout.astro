@@ -1,5 +1,6 @@
 ---
 import "../style.css";
+import type { ThemeModalTrans } from "../lib/i18n";
 import { allStylesCSS, resolveStyle, styleCSS } from "../lib/style";
 import {
   allThemesCSS,
@@ -17,7 +18,9 @@ interface TransClient {
   locale: string;
   title: string;
   tagline: string;
+  themeModal: ThemeModalTrans;
   readmeHTML: string;
+  version?: string;
 }
 
 interface Props {
@@ -143,32 +146,32 @@ const i18n: string | undefined =
     <meta name="color-scheme" content={fixedThemeTone ?? "light dark"}>
 
     {lightThemeColor && (
-      <meta
-          name="theme-color"
-          content={lightThemeColor}
-          data-light={lightThemeColor}
-          data-dark={darkThemeColor ?? lightThemeColor}
-      />
-  )}
+  <meta
+    name="theme-color"
+    content={lightThemeColor}
+    data-light={lightThemeColor}
+    data-dark={darkThemeColor ?? lightThemeColor}
+  />
+)}
 
     {themeCss && <style is:inline set:html={themeCss} />}
     {themeStyleCss && <style is:inline set:html={themeStyleCss} />}
     {allThemeData && (
-      <script
-          id="all-theme-data"
-          type="application/json"
-          is:inline
-          set:html={allThemeData}
-          />
-  )}
+  <script
+    id="all-theme-data"
+    type="application/json"
+    is:inline
+    set:html={allThemeData}
+  />
+)}
     {allStyleData && (
-      <script
-          id="all-style-data"
-          type="application/json"
-          is:inline
-          set:html={allStyleData}
-          />
-  )}
+  <script
+    id="all-style-data"
+    type="application/json"
+    is:inline
+    set:html={allStyleData}
+  />
+)}
     <script is:inline>
     (() => {
       const root = document.documentElement;
@@ -306,13 +309,8 @@ const i18n: string | undefined =
     })();
     </script>
     {i18n && (
-      <script
-          id="i18n-data"
-          type="application/json"
-          is:inline
-          set:html={i18n}
-          />
-  )}
+  <script id="i18n-data" type="application/json" is:inline set:html={i18n} />
+)}
 
     <script is:inline>
     (() => {
@@ -341,6 +339,16 @@ const i18n: string | undefined =
         const localeMap = new Map(
           locales.map((entry) => [entry.localeNorm, entry]),
         );
+        const isThemeModal = (value) =>
+          value &&
+          typeof value === "object" &&
+          typeof value.title === "string" &&
+          typeof value.description === "string" &&
+          typeof value.mode === "string" &&
+          typeof value.style === "string" &&
+          typeof value.searchThemes === "string" &&
+          typeof value.previewTitle === "string" &&
+          typeof value.previewHTML === "string";
         const srcRaw = payload.source;
         const src =
           srcRaw &&
@@ -348,6 +356,7 @@ const i18n: string | undefined =
           typeof srcRaw.locale === "string" &&
           typeof srcRaw.title === "string" &&
           typeof srcRaw.tagline === "string" &&
+          isThemeModal(srcRaw.themeModal) &&
           typeof srcRaw.readmeHTML === "string"
             ? {
                 ...srcRaw,
@@ -367,6 +376,8 @@ const i18n: string | undefined =
         }
 
         const transBase = String(payload.transBase ?? "");
+        const transVersion =
+          typeof src.version === "string" ? src.version.trim() : "";
         const transCache = new Map([[src.localeNorm, Promise.resolve(src)]]);
         const readmeTemplateCache = new Map();
 
@@ -477,10 +488,10 @@ const i18n: string | undefined =
           const cached = transCache.get(entry.localeNorm);
           if (cached) return cached;
 
-          const request = fetch(
-            `${transBase}${encodeURIComponent(entry.locale)}.json`,
-            { cache: "force-cache" },
-          )
+          const transUrl = `${transBase}${encodeURIComponent(entry.locale)}.json${
+            transVersion ? `?v=${encodeURIComponent(transVersion)}` : ""
+          }`;
+          const request = fetch(transUrl, { cache: "no-cache" })
             .then((res) => {
               if (!res.ok) {
                 throw new Error(`HTTP ${res.status}`);
@@ -494,12 +505,18 @@ const i18n: string | undefined =
                 localeNorm(translation.locale) !== entry.localeNorm ||
                 typeof translation.title !== "string" ||
                 typeof translation.tagline !== "string" ||
+                (translation.themeModal !== undefined &&
+                  !isThemeModal(translation.themeModal)) ||
                 typeof translation.readmeHTML !== "string"
               ) {
                 throw new Error("Invalid translation payload");
               }
               const normalizedTranslation = {
                 ...translation,
+                themeModal: {
+                  ...src.themeModal,
+                  ...(translation.themeModal ?? {}),
+                },
                 localeNorm: entry.localeNorm,
               };
               scheduleReadmeTemplate(normalizedTranslation);
@@ -572,11 +589,46 @@ const i18n: string | undefined =
             ogTitle.setAttribute("content", translation.title);
           }
 
-          const tagline = document.querySelector("[data-i18n-tagline]");
-          if (tagline) {
-            const value = translation.tagline.trim();
-            tagline.textContent = value;
-            tagline.hidden = !value;
+          const taglines = document.querySelectorAll("[data-i18n-tagline]");
+          const taglineValue = translation.tagline.trim();
+          for (const tagline of taglines) {
+            tagline.textContent = taglineValue;
+            tagline.hidden = !taglineValue;
+          }
+
+          const setThemeModalText = (selector, value) => {
+            for (const element of document.querySelectorAll(selector)) {
+              element.textContent = value;
+            }
+          };
+          const themeModal = translation.themeModal;
+          setThemeModalText("[data-i18n-theme-modal-title]", themeModal.title);
+          setThemeModalText(
+            "[data-i18n-theme-modal-description]",
+            themeModal.description,
+          );
+          setThemeModalText("[data-i18n-theme-modal-mode]", themeModal.mode);
+          setThemeModalText("[data-i18n-theme-modal-style]", themeModal.style);
+          setThemeModalText(
+            "[data-i18n-theme-modal-search]",
+            themeModal.searchThemes,
+          );
+          setThemeModalText(
+            "[data-i18n-theme-modal-preview-title]",
+            themeModal.previewTitle,
+          );
+          setThemeModalText(
+            "[data-i18n-theme-palette]",
+            themeModal.themePalette ?? src.themeModal.themePalette,
+          );
+          setThemeModalText(
+            "[data-i18n-style-layers]",
+            themeModal.styleLayers ?? src.themeModal.styleLayers,
+          );
+          for (const previewBody of document.querySelectorAll(
+            "[data-i18n-theme-modal-preview-body]",
+          )) {
+            previewBody.innerHTML = themeModal.previewHTML;
           }
 
           const readme = document.querySelector("[data-i18n-readme]");
@@ -691,6 +743,19 @@ const i18n: string | undefined =
           const next = locales[(curIdx + 1) % locales.length] ?? srcEntry;
 
           void selectLocale(next, {
+            persist: true,
+            replaceReadme: true,
+          });
+        });
+
+        window.addEventListener("i18n-select", (event) => {
+          const requestedLocale = event?.detail?.locale;
+          if (typeof requestedLocale !== "string") return;
+
+          const entry = localeMatch(requestedLocale);
+          if (!entry) return;
+
+          void selectLocale(entry, {
             persist: true,
             replaceReadme: true,
           });
@@ -1247,37 +1312,34 @@ const i18n: string | undefined =
 
     <link
       rel="icon"
-      href={favUrl ??
-          `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}favicon.svg`}
+      href={favUrl ?? `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}favicon.svg`}
     >
 
     {description && (
-      <>
-        <meta name="description" content={description} />
-        <meta property="og:description" content={description} />
-      </>
-  )}
+  <>
+    <meta name="description" content={description} />
+    <meta property="og:description" content={description} />
+  </>
+)}
 
     {baseUrl && (
-      <>
-        <link rel="canonical" href={baseUrl} />
-        <meta property="og:url" content={baseUrl} />
-      </>
-  )}
+  <>
+    <link rel="canonical" href={baseUrl} />
+    <meta property="og:url" content={baseUrl} />
+  </>
+)}
 
     <meta property="og:type" content="profile">
     <meta property="og:title" content={title}>
 
     {imageUrl && (
-      <>
-        <meta property="og:image" content={imageUrl} />
-        {imageAlt && <meta property="og:image:alt" content={imageAlt} />}
-      </>
-  )}
+  <>
+    <meta property="og:image" content={imageUrl} />
+    {imageAlt && <meta property="og:image:alt" content={imageAlt} />}
+  </>
+)}
 
-    {jsonLd && (
-      <script is:inline type="application/ld+json" set:html={jsonLd} />
-  )}
+    {jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd} />}
   </head>
 
   <body>

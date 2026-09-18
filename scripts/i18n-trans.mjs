@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import emojiRegex from "emoji-regex";
 import { fetchReadMe } from "../src/lib/gh.ts";
+import { themeModalSrc } from "../src/lib/i18n.ts";
 import { transHTML } from "./i18n-profile.mjs";
 import { assertModel, HF_MODEL } from "./i18n-setup.mjs";
 
@@ -477,6 +478,39 @@ class TransHF {
   }
 }
 
+async function transThemeModal(translator, locale) {
+  const modalTxt = await translator.transMany(
+    [
+      themeModalSrc.title,
+      themeModalSrc.description,
+      themeModalSrc.mode,
+      themeModalSrc.style,
+      themeModalSrc.searchThemes,
+      themeModalSrc.previewTitle,
+      themeModalSrc.themePalette,
+      themeModalSrc.styleLayers,
+    ],
+    locale,
+  );
+
+  return {
+    title: modalTxt.get(themeModalSrc.title) ?? themeModalSrc.title,
+    description:
+      modalTxt.get(themeModalSrc.description) ?? themeModalSrc.description,
+    mode: modalTxt.get(themeModalSrc.mode) ?? themeModalSrc.mode,
+    style: modalTxt.get(themeModalSrc.style) ?? themeModalSrc.style,
+    searchThemes:
+      modalTxt.get(themeModalSrc.searchThemes) ?? themeModalSrc.searchThemes,
+    previewTitle:
+      modalTxt.get(themeModalSrc.previewTitle) ?? themeModalSrc.previewTitle,
+    previewHTML: await translator.transHtml(themeModalSrc.previewHTML, locale),
+    themePalette:
+      modalTxt.get(themeModalSrc.themePalette) ?? themeModalSrc.themePalette,
+    styleLayers:
+      modalTxt.get(themeModalSrc.styleLayers) ?? themeModalSrc.styleLayers,
+  };
+}
+
 function localeNorm(locale) {
   return String(locale ?? "")
     .trim()
@@ -546,6 +580,15 @@ function trans(conf, gen) {
     typeof gen !== "object" ||
     typeof gen.locale !== "string" ||
     typeof gen.tagline !== "string" ||
+    !gen.themeModal ||
+    typeof gen.themeModal !== "object" ||
+    typeof gen.themeModal.title !== "string" ||
+    typeof gen.themeModal.description !== "string" ||
+    typeof gen.themeModal.mode !== "string" ||
+    typeof gen.themeModal.style !== "string" ||
+    typeof gen.themeModal.searchThemes !== "string" ||
+    typeof gen.themeModal.previewTitle !== "string" ||
+    typeof gen.themeModal.previewHTML !== "string" ||
     !gen.readme ||
     typeof gen.readme.html !== "string"
   ) {
@@ -558,6 +601,7 @@ function trans(conf, gen) {
     locale: gen.locale,
     title: `${String(conf.tabName || conf.githubName || "").trim()} — ${String(gen?.tabSuffix || TAB_SUFFIX)}`,
     tagline: gen.tagline,
+    themeModal: { ...themeModalSrc, ...gen.themeModal },
     readmeHTML: gen.readme.html,
   };
 }
@@ -608,8 +652,26 @@ async function main() {
     }
   }
 
+  let uiTransHF;
+  const getUiTransHF = () => {
+    uiTransHF ??= new TransHF("en");
+    return uiTransHF;
+  };
+  const isEngSrc = localeSrc.toLowerCase().startsWith("en");
+  const sourceThemeModal = isEngSrc
+    ? themeModalSrc
+    : await transThemeModal(getUiTransHF(), localeSrc);
+
   const srcHash = createHash("sha256")
-    .update(JSON.stringify({ localeSrc, tabSuffix, tagline, readme }))
+    .update(
+      JSON.stringify({
+        localeSrc,
+        tabSuffix,
+        tagline,
+        themeModal: themeModalSrc,
+        readme,
+      }),
+    )
     .digest("hex");
 
   const sharedDoc = { localeSrc, srcHash };
@@ -620,6 +682,7 @@ async function main() {
     generator: { provider: "source" },
     tabSuffix,
     tagline,
+    themeModal: sourceThemeModal,
     readme,
   });
 
@@ -643,12 +706,14 @@ async function main() {
   );
   if (!localesStale.length) {
     await pubTrans(locales, conf);
+    if (uiTransHF) await uiTransHF.dispose();
     console.log("Translations are up to date.");
     return;
   }
 
   console.log(`Generating: ${localesStale.join(", ")}`);
   const transHF = new TransHF(localeSrc);
+  const modalTransHF = isEngSrc ? transHF : getUiTransHF();
   try {
     for (const locale of localesStale) {
       console.log(`Translating ${localeSrc} -> ${locale}...`);
@@ -660,12 +725,15 @@ async function main() {
       const transTagline = tagline ? (txt.get(tagline) ?? tagline) : "";
       const transReadme = await transHF.transHtml(readme.html, locale);
 
+      const themeModal = await transThemeModal(modalTransHF, locale);
+
       await writeJson(genPath(locale), {
         ...sharedDoc,
         locale,
         generator: MODEL_META,
         tabSuffix: transTabSuffix,
         tagline: transTagline,
+        themeModal,
         readme: {
           ...readme,
           html: transReadme,
@@ -674,6 +742,7 @@ async function main() {
     }
   } finally {
     await transHF.dispose();
+    if (uiTransHF && uiTransHF !== transHF) await uiTransHF.dispose();
   }
 
   await pubTrans(locales, conf);

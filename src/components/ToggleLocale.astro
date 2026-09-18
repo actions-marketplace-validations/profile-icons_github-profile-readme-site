@@ -1,8 +1,20 @@
+---
+interface Props {
+  locales: string[];
+}
+
+const { locales } = Astro.props;
+const isLocaleDialog: boolean = locales.length > 2;
+---
+
 <button
   id="i18n-toggle"
   type="button"
   class="i18n-toggle"
-  aria-label="Switch language"
+  aria-label={isLocaleDialog ? "Choose language" : "Switch language"}
+  aria-expanded={isLocaleDialog ? "false" : undefined}
+  aria-controls={isLocaleDialog ? "i18n-dialog" : undefined}
+  aria-haspopup={isLocaleDialog ? "dialog" : undefined}
 >
   <svg
     class="i18n-toggle-icon"
@@ -22,26 +34,194 @@
   </span>
 </button>
 
+{isLocaleDialog && (
+  <dialog
+    id="i18n-dialog"
+    class="i18n-dialog"
+    aria-labelledby="i18n-dialog-heading"
+  >
+    <div class="i18n-dialog-heading">
+      <h2 id="i18n-dialog-heading">Language</h2>
+      <button
+        type="button"
+        class="i18n-dialog-close"
+        aria-label="Close language selector"
+        data-i18n-dialog-close
+      >
+        ×
+      </button>
+    </div>
+
+    <label class="i18n-dialog-label" for="i18n-search">
+      Search languages
+    </label>
+    <input
+      id="i18n-search"
+      class="i18n-dialog-search"
+      type="search"
+      autocomplete="off"
+      spellcheck="false"
+      aria-controls="i18n-options"
+    />
+
+    <div id="i18n-options" class="i18n-options" translate="no">
+      {locales.map((locale: string) => (
+        <button
+          type="button"
+          class="i18n-option"
+          data-i18n-locale-option={locale}
+          aria-pressed="false"
+        >
+          <span lang={locale} dir="auto" data-i18n-locale-name>
+            {locale}
+          </span>
+          <small dir="ltr">{locale.toUpperCase()}</small>
+        </button>
+      ))}
+    </div>
+
+    <p class="i18n-empty" data-i18n-empty hidden>
+      No languages found
+    </p>
+  </dialog>
+)}
+
 <script>
 const button: HTMLElement | null = document.getElementById("i18n-toggle");
 const root: HTMLElement = document.documentElement;
+const dialog: HTMLDialogElement | null =
+  document.querySelector<HTMLDialogElement>("#i18n-dialog");
+
+const localeNorm = (locale: string): string =>
+  locale.trim().replaceAll("_", "-").toLowerCase();
+
+const languageName = (locale: string, displayLocale: string): string => {
+  try {
+    const value: string | undefined = new Intl.DisplayNames([displayLocale], {
+      type: "language",
+    }).of(locale);
+    return value && value !== locale ? value : locale;
+  } catch {
+    return locale;
+  }
+};
 
 if (button instanceof HTMLButtonElement) {
   const tooltipLocale: HTMLElement | null = button.querySelector(
     "[data-i18n-tooltip-locale]",
   );
+  const search: HTMLInputElement | null =
+    dialog?.querySelector<HTMLInputElement>("#i18n-search") ?? null;
+  const empty: HTMLElement | null =
+    dialog?.querySelector<HTMLElement>("[data-i18n-empty]") ?? null;
+  const closeButton: HTMLButtonElement | null =
+    dialog?.querySelector<HTMLButtonElement>("[data-i18n-dialog-close]") ??
+    null;
+  const options: HTMLButtonElement[] = dialog
+    ? Array.from(
+        dialog.querySelectorAll<HTMLButtonElement>("[data-i18n-locale-option]"),
+      )
+    : [];
+
+  for (const option of options) {
+    const locale: string = option.dataset.i18nLocaleOption ?? "";
+    const nativeName: string = languageName(locale, locale);
+    const englishName: string = languageName(locale, "en");
+    const name: HTMLElement | null = option.querySelector<HTMLElement>(
+      "[data-i18n-locale-name]",
+    );
+
+    if (name) name.textContent = nativeName;
+    option.dataset.i18nSearch = `${nativeName} ${englishName} ${locale}`;
+  }
 
   const syncLabel = (): void => {
     const locale: string = root.dataset.locale || root.lang || "";
     const cur: string = locale ? ` Current language: ${locale}.` : "";
-    button.setAttribute("aria-label", `Switch language.${cur}`);
+    const action: string = dialog ? "Choose language." : "Switch language.";
+    button.setAttribute("aria-label", `${action}${cur}`);
     if (tooltipLocale) tooltipLocale.textContent = locale || "—";
+
+    const norm: string = localeNorm(locale);
+    for (const option of options) {
+      option.setAttribute(
+        "aria-pressed",
+        String(localeNorm(option.dataset.i18nLocaleOption ?? "") === norm),
+      );
+    }
+  };
+
+  const filterOptions = (): void => {
+    const query: string = (search?.value ?? "")
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .trim();
+    let visible: number = 0;
+
+    for (const option of options) {
+      const searchText: string = (option.dataset.i18nSearch ?? "")
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .toLowerCase();
+      option.hidden = Boolean(query) && !searchText.includes(query);
+      if (!option.hidden) visible += 1;
+    }
+
+    if (empty) empty.hidden = visible > 0;
   };
 
   syncLabel();
+
   button.addEventListener("click", (): void => {
-    window.dispatchEvent(new Event("i18n-toggle"));
+    if (!dialog) {
+      window.dispatchEvent(new Event("i18n-toggle"));
+      return;
+    }
+
+    if (search) search.value = "";
+    filterOptions();
+    syncLabel();
+    dialog.showModal();
+    button.setAttribute("aria-expanded", "true");
+    search?.focus();
   });
+
+  for (const option of options) {
+    option.addEventListener("click", (): void => {
+      const locale: string = option.dataset.i18nLocaleOption ?? "";
+      if (!locale) return;
+
+      window.dispatchEvent(
+        new CustomEvent("i18n-select", {
+          detail: { locale },
+        }),
+      );
+      dialog?.close();
+    });
+  }
+
+  search?.addEventListener("input", filterOptions);
+  closeButton?.addEventListener("click", (): void => dialog?.close());
+
+  dialog?.addEventListener("close", (): void => {
+    button.setAttribute("aria-expanded", "false");
+    button.focus();
+  });
+
+  dialog?.addEventListener("click", (event: MouseEvent): void => {
+    if (event.target !== dialog) return;
+    const box: DOMRect = dialog.getBoundingClientRect();
+    if (
+      event.clientX < box.left ||
+      event.clientX > box.right ||
+      event.clientY < box.top ||
+      event.clientY > box.bottom
+    ) {
+      dialog.close();
+    }
+  });
+
   window.addEventListener("i18n-toggle-readme", syncLabel);
 }
 </script>

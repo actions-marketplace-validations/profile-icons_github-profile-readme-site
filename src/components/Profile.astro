@@ -51,7 +51,9 @@ const srcTrans = {
   locale: localeSrc,
   title: profileSrc.title,
   tagline: profileSrc.tagline,
+  themeModal: profileSrc.themeModal,
   readmeHTML: profileSrc.readme.html,
+  version: profileSrc.version,
 };
 
 const url: URL = new URL(Astro.url.pathname, Astro.site);
@@ -95,17 +97,23 @@ const structData = {
   <main
     class="content-shell relative mx-auto min-h-screen max-w-4xl px-5 py-10 sm:px-8 sm:py-16"
   >
-    {(isToggleSiteTheme ||
-        isToggleSiteStyle ||
-        isToggleTheme ||
-        isToggleLocale) && (
-        <div class="profile-controls">
-          {isToggleSiteTheme && <ToggleSiteTheme />}
-          {isToggleSiteStyle && <ToggleSiteStyle />}
-          {isToggleTheme && <ToggleTheme />}
-          {isToggleLocale && <ToggleLocale />}
-        </div>
+    {(isToggleSiteTheme || isToggleSiteStyle || isToggleTheme || isToggleLocale) && (
+  <div class="profile-controls">
+    {isToggleSiteTheme && (
+      <ToggleSiteTheme
+        imageUrl={githubAvatarUrl}
+        tagline={profileSrc.tagline}
+        translations={profileSrc.themeModal}
+        styleNames={styleType.type === "all" ? styleType.names : []}
+      />
     )}
+    {isToggleSiteStyle && (
+      <ToggleSiteStyle translations={profileSrc.themeModal} />
+    )}
+    {isToggleTheme && <ToggleTheme />}
+    {isToggleLocale && <ToggleLocale locales={locales} />}
+  </div>
+)}
 
     <ProfileAvatar
       imageUrl={githubAvatarUrl}

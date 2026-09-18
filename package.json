@@ -1,8 +1,17 @@
 {
   "name": "github-profile-readme-site",
   "version": "1.0.0",
+  "description": "A static GitHub profile site template for rendering README markdown content with avatar, tagline, org & icon links.",
   "private": true,
   "type": "module",
+  "author": "profile-icons",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/profile-icons/github-profile-readme-site.git"
+  },
+  "bugs": {
+    "url": "https://github.com/profile-icons/github-profile-readme-site/issues"
+  },
   "engines": {
     "node": ">=24.21.0"
   },
@@ -11,25 +20,24 @@
     "dev": "npm run i18n && astro dev",
     "build": "npm run i18n && astro build",
     "preview": "astro preview",
-    "verify": "biome check . && astro check",
-    "verify:fix": "biome check --write . && astro check"
+    "verify": "biome check . && astro check && tsc --noEmit",
+    "verify:fix": "biome check --write . && astro check && tsc --noEmit"
   },
   "overrides": {
     "sharp": "0.35.4"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
-    "@huggingface/transformers": "^3.8.1",
-    "astro": "^7.3.2",
+    "@huggingface/transformers": "^4.3.0",
+    "astro": "^7.3.3",
     "bootstrap-icons": "^1.13.1",
-    "clean": "^4.0.2",
-    "emoji-regex": "^10.6.0",
-    "marked": "^18.0.12",
-    "simple-icons": "^16.30.0"
+    "emoji-regex": "^11.0.0",
+    "marked": "^18.0.13",
+    "simple-icons": "^16.31.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
-    "@biomejs/biome": "^2.5.13",
+    "@biomejs/biome": "^2.5.14",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "globals": "^17.12.0",
@@ -37,7 +45,7 @@
     "typescript": "^6.0.3"
   },
   "allowScripts": {
-    "onnxruntime-node@1.21.0": true,
+    "onnxruntime-node@1.30.0": true,
     "esbuild@0.28.2": true,
     "protobufjs@7.6.6": true
   }

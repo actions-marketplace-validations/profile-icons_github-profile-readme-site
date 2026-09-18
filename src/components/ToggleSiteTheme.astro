@@ -1,8 +1,42 @@
+---
+import { type ThemeModalTrans, themeModalSrc } from "../lib/i18n";
+import { themeNames } from "../lib/theme";
+
+interface Props {
+  imageUrl: string;
+  tagline?: string;
+  styleNames?: string[];
+  translations?: ThemeModalTrans;
+}
+
+const {
+  imageUrl,
+  tagline,
+  styleNames = [],
+  translations = themeModalSrc,
+} = Astro.props;
+const names: string[] = themeNames();
+const showStyleControls: boolean = styleNames.length > 1;
+const themeLbl = (name: string): string =>
+  name
+    .split(/[-_]+/)
+    .map((part: string): string => {
+      if (part.toLowerCase() === "github") return "GitHub";
+      if (part.toLowerCase() === "ayu") return "Ayu";
+      if (part.toLowerCase() === "papercolor") return "PaperColor";
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join(" ");
+---
+
 <button
   id="site-theme-toggle"
   type="button"
   class="site-theme-toggle"
-  aria-label="Switch theme"
+  aria-label="Choose theme"
+  aria-expanded="false"
+  aria-controls="site-theme-dialog"
+  aria-haspopup="dialog"
 >
   <span class="site-theme-toggle-symbol" aria-hidden="true">
     <svg
@@ -16,7 +50,7 @@
       stroke-linejoin="round"
       focusable="false"
     >
-      <title>Theme palette</title>
+      <title data-i18n-theme-palette>{translations.themePalette}</title>
       <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none" />
       <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none" />
       <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none" />
@@ -31,13 +65,161 @@
   </span>
 </button>
 
+<dialog
+  id="site-theme-dialog"
+  class="site-theme-dialog"
+  aria-labelledby="site-theme-dialog-heading"
+>
+  <div class="site-theme-dialog-scroll">
+    <div class="site-theme-dialog-sticky">
+      <div class="site-theme-dialog-heading">
+        <div>
+          <h2 id="site-theme-dialog-heading" data-i18n-theme-modal-title>
+            {translations.title}
+          </h2>
+          <p data-i18n-theme-modal-description>{translations.description}</p>
+        </div>
+        <button
+          type="button"
+          class="site-theme-dialog-close"
+          aria-label="Close theme selector"
+          data-site-theme-dialog-close
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="site-theme-dialog-toolbar">
+        <div class="site-theme-dialog-controls">
+          <fieldset class="site-theme-control-group">
+            <legend data-i18n-theme-modal-mode>{translations.mode}</legend>
+            <div class="site-theme-segmented">
+              <button
+                type="button"
+                data-site-theme-mode="light"
+                aria-pressed="false"
+              >
+                Light
+              </button>
+              <button
+                type="button"
+                data-site-theme-mode="dark"
+                aria-pressed="false"
+              >
+                Dark
+              </button>
+            </div>
+          </fieldset>
+
+          {showStyleControls && (
+  <fieldset class="site-theme-control-group site-theme-style-group">
+    <legend data-i18n-theme-modal-style>{translations.style}</legend>
+    <div class="site-theme-style-options">
+      {styleNames.map((styleName: string) => (
+        <button
+          type="button"
+          data-site-theme-style={styleName}
+          aria-pressed="false"
+        >
+          {themeLbl(styleName)}
+        </button>
+      ))}
+    </div>
+  </fieldset>
+)}
+        </div>
+
+        <label
+          class="site-theme-dialog-label"
+          for="site-theme-search"
+          data-i18n-theme-modal-search
+        >
+          {translations.searchThemes}
+        </label>
+        <input
+          id="site-theme-search"
+          class="site-theme-dialog-search"
+          type="search"
+          autocomplete="off"
+          spellcheck="false"
+          aria-controls="site-theme-options"
+        >
+      </div>
+    </div>
+
+    <div class="site-theme-dialog-body">
+      <div id="site-theme-options" class="site-theme-options">
+        {names.map((name: string) => (
+  <button
+    type="button"
+    class="site-theme-option"
+    data-site-theme-option={name}
+    data-site-theme-search={`${themeLbl(name)} ${name}`}
+    aria-pressed="false"
+  >
+    <span class="site-theme-option-heading">
+      <span>
+        <strong>{themeLbl(name)}</strong>
+        <small>{name}</small>
+      </span>
+      <span class="site-theme-option-selected" aria-hidden="true">
+        ✓
+      </span>
+    </span>
+
+    <span
+      class="site-theme-preview"
+      data-site-theme-preview={name}
+      aria-hidden="true"
+    >
+      <span class="site-theme-preview-profile">
+        <img
+          class="site-theme-preview-avatar"
+          src={imageUrl}
+          alt=""
+          width="160"
+          height="160"
+          loading="lazy"
+        />
+        {tagline && <small data-i18n-tagline>{tagline.trim()}</small>}
+      </span>
+
+      <span class="site-theme-preview-readme">
+        <strong data-i18n-theme-modal-preview-title>
+          {translations.previewTitle}
+        </strong>
+        <span
+          data-i18n-theme-modal-preview-body
+          set:html={translations.previewHTML}
+        />
+        <span class="site-theme-preview-code">
+          <span>
+            <b>const</b> <i>theme</i> = <em>"{name}"</em>
+            <span>;</span>
+          </span>
+        </span>
+      </span>
+    </span>
+  </button>
+))}
+      </div>
+
+      <p class="site-theme-empty" data-site-theme-empty hidden>
+        No themes found
+      </p>
+    </div>
+  </div>
+</dialog>
+
 <script>
 const button: HTMLElement | null = document.getElementById("site-theme-toggle");
 const root: HTMLElement = document.documentElement;
 const dataElement: HTMLElement | null =
   document.getElementById("all-theme-data");
+const dialog: HTMLDialogElement | null =
+  document.querySelector<HTMLDialogElement>("#site-theme-dialog");
 
-if (button instanceof HTMLButtonElement && dataElement) {
+if (button instanceof HTMLButtonElement && dataElement && dialog) {
   try {
     const payload: { names?: unknown } = JSON.parse(
       dataElement.textContent ?? "{}",
@@ -51,30 +233,195 @@ if (button instanceof HTMLButtonElement && dataElement) {
     const tooltip: HTMLElement | null = button.querySelector(
       "[data-site-theme-tooltip]",
     );
+    const search: HTMLInputElement | null =
+      dialog.querySelector<HTMLInputElement>("#site-theme-search");
+    const empty: HTMLElement | null = dialog.querySelector<HTMLElement>(
+      "[data-site-theme-empty]",
+    );
+    const closeButton: HTMLButtonElement | null =
+      dialog.querySelector<HTMLButtonElement>("[data-site-theme-dialog-close]");
+    const stickyHeader: HTMLElement | null = dialog.querySelector<HTMLElement>(
+      ".site-theme-dialog-sticky",
+    );
+    const scrollViewport: HTMLElement | null =
+      dialog.querySelector<HTMLElement>(".site-theme-dialog-scroll");
+    const options: HTMLButtonElement[] = Array.from(
+      dialog.querySelectorAll<HTMLButtonElement>("[data-site-theme-option]"),
+    );
+    const modeButtons: HTMLButtonElement[] = Array.from(
+      dialog.querySelectorAll<HTMLButtonElement>("[data-site-theme-mode]"),
+    );
+    const styleButtons: HTMLButtonElement[] = Array.from(
+      dialog.querySelectorAll<HTMLButtonElement>("[data-site-theme-style]"),
+    );
 
     const syncLabel = (): void => {
       const current: string = root.dataset.siteTheme ?? names[0] ?? "";
-      const label: string = `theme: ${current.toLowerCase()}`;
+      const label: string = current ? `${current.toLowerCase()}` : "theme";
       button.setAttribute(
         "aria-label",
-        label ? `Switch theme. Current theme: ${label}.` : "Switch theme",
+        current ? `Choose theme. Current theme: ${current}.` : "Choose theme",
       );
       if (tooltip) tooltip.textContent = label;
+
+      for (const option of options) {
+        option.setAttribute(
+          "aria-pressed",
+          String(option.dataset.siteThemeOption === current),
+        );
+      }
+    };
+
+    let previewMode: "light" | "dark" = root.classList.contains("dark")
+      ? "dark"
+      : "light";
+    let previewStyle: string = root.dataset.themeStyle ?? "";
+
+    const syncPreviewMode = (): void => {
+      dialog.dataset.previewMode = previewMode;
+      for (const modeButton of modeButtons) {
+        modeButton.setAttribute(
+          "aria-pressed",
+          String(modeButton.dataset.siteThemeMode === previewMode),
+        );
+      }
+    };
+
+    const syncPreviewStyle = (): void => {
+      if (previewStyle) dialog.dataset.previewStyle = previewStyle;
+      else delete dialog.dataset.previewStyle;
+
+      for (const styleButton of styleButtons) {
+        styleButton.setAttribute(
+          "aria-pressed",
+          String(styleButton.dataset.siteThemeStyle === previewStyle),
+        );
+      }
+    };
+
+    const resetPreviewControls = (): void => {
+      previewMode = root.classList.contains("dark") ? "dark" : "light";
+      previewStyle = root.dataset.themeStyle ?? "";
+      syncPreviewMode();
+      syncPreviewStyle();
+    };
+
+    const filterOptions = (): void => {
+      const query: string = (search?.value ?? "").toLowerCase().trim();
+      let visible: number = 0;
+
+      for (const option of options) {
+        const searchText: string = (
+          option.dataset.siteThemeSearch ??
+          option.dataset.siteThemeOption ??
+          ""
+        ).toLowerCase();
+        option.hidden = Boolean(query) && !searchText.includes(query);
+        if (!option.hidden) visible += 1;
+      }
+
+      if (empty) empty.hidden = visible > 0;
     };
 
     syncLabel();
+    syncPreviewMode();
+    syncPreviewStyle();
+
     button.addEventListener("click", (): void => {
-      const first: string | undefined = names[0];
-      if (!first) return;
-      const current: string = root.dataset.siteTheme ?? first;
-      const currentIndex: number = names.indexOf(current);
-      const next: string = names[(currentIndex + 1) % names.length] ?? first;
-      window.dispatchEvent(
-        new CustomEvent("site-theme-select", { detail: { theme: next } }),
+      if (search) search.value = "";
+      filterOptions();
+      syncLabel();
+      resetPreviewControls();
+      dialog.showModal();
+      root.classList.add("site-theme-dialog-open");
+      button.setAttribute("aria-expanded", "true");
+
+      const current: string = root.dataset.siteTheme ?? names[0] ?? "";
+      const currentOption: HTMLButtonElement | undefined = options.find(
+        (option: HTMLButtonElement): boolean =>
+          option.dataset.siteThemeOption === current,
       );
+
+      if (currentOption) {
+        requestAnimationFrame((): void => {
+          const viewportBox: DOMRect =
+            scrollViewport?.getBoundingClientRect() ??
+            dialog.getBoundingClientRect();
+          const optionBox: DOMRect = currentOption.getBoundingClientRect();
+          const stickyHeight: number =
+            stickyHeader?.getBoundingClientRect().height ?? 0;
+          const visibleTop: number = viewportBox.top + stickyHeight;
+          const visibleCenter: number =
+            visibleTop + (viewportBox.bottom - visibleTop) / 2;
+          const optionCenter: number = optionBox.top + optionBox.height / 2;
+
+          if (scrollViewport) {
+            scrollViewport.scrollTop += optionCenter - visibleCenter;
+          }
+          currentOption.focus({ preventScroll: true });
+        });
+      } else {
+        search?.focus();
+      }
     });
+
+    for (const modeButton of modeButtons) {
+      modeButton.addEventListener("click", (): void => {
+        const mode: string = modeButton.dataset.siteThemeMode ?? "";
+        if (mode !== "light" && mode !== "dark") return;
+        previewMode = mode;
+        syncPreviewMode();
+      });
+    }
+
+    for (const styleButton of styleButtons) {
+      styleButton.addEventListener("click", (): void => {
+        const style: string = styleButton.dataset.siteThemeStyle ?? "";
+        if (!style) return;
+        previewStyle = style;
+        syncPreviewStyle();
+      });
+    }
+
+    for (const option of options) {
+      option.addEventListener("click", (): void => {
+        const theme: string = option.dataset.siteThemeOption ?? "";
+        if (!theme || !names.includes(theme)) return;
+
+        window.dispatchEvent(
+          new CustomEvent("site-theme-select", { detail: { theme } }),
+        );
+        dialog.close();
+      });
+    }
+
+    search?.addEventListener("input", filterOptions);
+    closeButton?.addEventListener("click", (): void => dialog.close());
+
+    dialog.addEventListener("close", (): void => {
+      root.classList.remove("site-theme-dialog-open");
+      button.setAttribute("aria-expanded", "false");
+      button.focus();
+    });
+
+    dialog.addEventListener("click", (event: MouseEvent): void => {
+      if (event.target !== dialog) return;
+      const box: DOMRect = dialog.getBoundingClientRect();
+      if (
+        event.clientX < box.left ||
+        event.clientX > box.right ||
+        event.clientY < box.top ||
+        event.clientY > box.bottom
+      ) {
+        dialog.close();
+      }
+    });
+
     window.addEventListener("site-theme-change", syncLabel);
-    window.addEventListener("pageshow", syncLabel);
+    window.addEventListener("pageshow", (): void => {
+      syncLabel();
+      resetPreviewControls();
+    });
   } catch (error) {
     console.error("Failed to initialize theme switcher:", error);
   }

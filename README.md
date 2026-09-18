@@ -140,29 +140,40 @@ To display your profile README content in the site, create/edit `site.config.jso
 <details>
 <summary>Select from any one of the available themes:</summary>
 
+* `aura`
 * `ayu`
 * `catppuccin`
 * `cobalt2`
 * `dracula`
 * `everforest`
+* `flexoki`
 * `github`
 * `github-colorblind`
 * `github-high-contrast`
 * `github-soft`
 * `gruvbox`
 * `horizon`
+* `iceberg`
 * `kanagawa`
 * `material`
 * `monokai`
+* `moonlight`
 * `night-owl`
+* `nightfox`
 * `nord`
-* `one_dark`
+* `one-dark`
+* `oxocarbon`
 * `palenight`
+* `papercolor`
+* `poimandres`
 * `rose-pine`
 * `solarized`
 * `synthwave84`
 * `tokyo-night`
 * `tomorrow`
+* `vesper`
+* `vitesse`
+* `zenburn`
 </details>
 
 Each theme supports light and dark mode. CSS can be found in `src/themes.json`.
@@ -173,10 +184,18 @@ Each theme supports light and dark mode. CSS can be found in `src/themes.json`.
 <summary>Select from any one of the available styles:</summary>
 
 * `aurora`
+* `blueprint`
+* `crosshatch`
 * `gradient`
+* `grain`
 * `grid`
 * `glow`
+* `halftone`
+* `mesh`
+* `paper`
 * `solid`
+* `spotlight`
+* `stars`
 </details>
 
 CSS can be found in `src/styles.json`.
@@ -465,7 +484,7 @@ Each entry in the **links** `{key: value}` object maps a platform/icon ID (`key`
   "tagline": "Just a guy who likes ☕",
   "tabName": "Adam Ross",
   "tabSuffix": "GitHub Profile",
-  "description": "A static profile site for rendering GitHub README markdown content with avatar, tagline & icon links",
+  "description": "A static GitHub profile site template for rendering README markdown content with avatar, tagline, org & icon links.",
   "theme": "github-soft",
   "themeColor": "",
   "style": "aurora",

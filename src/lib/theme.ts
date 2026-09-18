@@ -292,9 +292,21 @@ export const themeCSS: (
   name: string,
   light: ThemeVar,
   dark: ThemeVar,
-) => string = (name: string, light: ThemeVar, dark: ThemeVar): string => {
+  isPreview?: boolean,
+) => string = (
+  name: string,
+  light: ThemeVar,
+  dark: ThemeVar,
+  isPreview = false,
+): string => {
   const nameStr: string = JSON.stringify(name);
-  return `html[data-site-theme=${nameStr}]{${variantCSS(light)}}html[data-site-theme=${nameStr}].dark{${variantCSS(dark)}}`;
+  const lightSelector: string = isPreview
+    ? `html[data-site-theme=${nameStr}],.site-theme-dialog[data-preview-mode="light"] .site-theme-preview[data-site-theme-preview=${nameStr}]`
+    : `html[data-site-theme=${nameStr}]`;
+  const darkSelector: string = isPreview
+    ? `html[data-site-theme=${nameStr}].dark,.site-theme-dialog[data-preview-mode="dark"] .site-theme-preview[data-site-theme-preview=${nameStr}]`
+    : `html[data-site-theme=${nameStr}].dark`;
+  return `${lightSelector}{${variantCSS(light)}}${darkSelector}{${variantCSS(dark)}}`;
 };
 
 export const allThemesCSS: (names?: string[]) => string = (
@@ -303,7 +315,7 @@ export const allThemesCSS: (names?: string[]) => string = (
   names
     .map((name: string): string => {
       const theme: Theme | undefined = themes[name];
-      return theme ? themeCSS(name, theme.light, theme.dark) : "";
+      return theme ? themeCSS(name, theme.light, theme.dark, true) : "";
     })
     .join("");
 
