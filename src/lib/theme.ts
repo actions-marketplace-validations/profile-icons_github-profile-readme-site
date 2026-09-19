@@ -253,7 +253,10 @@ export const resolveTheme: (val?: string | undefined) => ThemeType = (
 
   if (themeVal === "all") {
     const names: string[] = themeNames();
-    const name: string | undefined = names[0];
+    const preferredName: string = "abyss";
+    const name: string | undefined = names.includes(preferredName)
+      ? preferredName
+      : names[0];
     const theme: Theme | undefined = name ? themes[name] : undefined;
     if (!name || !theme) {
       throw new Error("Theme collection is empty.");

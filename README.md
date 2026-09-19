@@ -1,6 +1,6 @@
 # GitHub Profile README Site
 
-Deploy your GitHub user or organization profile `README.md` as a static Astro site using Actions with:
+Deploy your GitHub user or organization profile `README.md` as a configurable static Astro site using Actions with:
 
 - profile avatar
 - (optional) tagline

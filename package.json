@@ -1,7 +1,7 @@
 {
   "name": "github-profile-readme-site",
   "version": "1.0.0",
-  "description": "A static GitHub profile site template for rendering README markdown content with avatar, tagline, org & icon links.",
+  "description": "A configurable static GitHub profile site template for rendering README Markdown content with avatar & optional tagline, i18n translations, themes, styles, org badge & web icon links.",
   "private": true,
   "type": "module",
   "author": "profile-icons",

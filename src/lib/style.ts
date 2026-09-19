@@ -30,12 +30,22 @@ const css: (property: string, val?: string | undefined) => string = (
   val?: string,
 ): string => (val?.trim() ? `${property}:${val};` : "");
 
-export const styleCSS: (name: string, style: StyleI) => string = (
+export const styleCSS: (
   name: string,
   style: StyleI,
-): string => {
+  isPreview?: boolean,
+) => string = (name: string, style: StyleI, isPreview = false): string => {
   const nameStr: string = JSON.stringify(name);
-  return `html[data-theme-style=${nameStr}] body{${css("background", style.bg)}${css("background-size", style.bgSize)}${css("background-position", style.bgPos)}}`;
+  const declarations: string = `${css("background", style.bg)}${css(
+    "background-size",
+    style.bgSize,
+  )}${css("background-position", style.bgPos)}`;
+  const siteRule: string = `html[data-theme-style=${nameStr}] body{${declarations}}`;
+
+  if (!isPreview) return siteRule;
+
+  const previewRule: string = `.site-theme-dialog[data-preview-style=${nameStr}] .site-theme-preview-style-layer{${declarations}}`;
+  return `${siteRule}${previewRule}`;
 };
 
 export const allStylesCSS: (names?: string[]) => string = (
@@ -44,7 +54,7 @@ export const allStylesCSS: (names?: string[]) => string = (
   names
     .map((name: string): string => {
       const style: StyleI | undefined = styles[name];
-      return style ? styleCSS(name, style) : "";
+      return style ? styleCSS(name, style, true) : "";
     })
     .join("");
 
@@ -56,7 +66,10 @@ export const resolveStyle: (val?: string | undefined) => Style = (
 
   if (styleVal === "all") {
     const names: string[] = styleNames();
-    const name: string | undefined = names[0];
+    const preferredName: string = "stars";
+    const name: string | undefined = names.includes(preferredName)
+      ? preferredName
+      : names[0];
     const style: StyleI | undefined = name ? styles[name] : undefined;
     if (!name || !style) {
       throw new Error("Theme style collection is empty.");

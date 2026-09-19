@@ -106,6 +106,7 @@ const allThemeData: string | undefined =
   themeSelection.type === "all"
     ? JSON.stringify({
         names: themeSelection.names,
+        defaultName: themeSelection.name,
         colors: themeBackgrounds(themeSelection.names),
         themeColor: resolvedThemeColor,
       }).replace(/</g, "\\u003c")
@@ -114,6 +115,7 @@ const allStyleData: string | undefined =
   styleSelection.type === "all"
     ? JSON.stringify({
         names: styleSelection.names,
+        defaultName: styleSelection.name,
       }).replace(/</g, "\\u003c")
     : undefined;
 const jsonLd: string | undefined = data
@@ -196,7 +198,12 @@ const i18n: string | undefined =
             ? payload.themeColor
             : null;
         const isKnown = (name) => names.includes(name);
-        let current = names[0];
+        const defaultName =
+          typeof payload.defaultName === "string" &&
+          isKnown(payload.defaultName)
+            ? payload.defaultName
+            : names[0];
+        let current = defaultName;
 
         try {
           const saved = localStorage.getItem("gh-profile-site-theme");
@@ -268,7 +275,12 @@ const i18n: string | undefined =
         if (!names.length) return;
 
         const isKnown = (name) => names.includes(name);
-        let current = names[0];
+        const defaultName =
+          typeof payload.defaultName === "string" &&
+          isKnown(payload.defaultName)
+            ? payload.defaultName
+            : names[0];
+        let current = defaultName;
 
         try {
           const saved = localStorage.getItem("gh-profile-site-style");
@@ -815,12 +827,15 @@ const i18n: string | undefined =
         // pass
       }
 
+      const allThemeMode = Boolean(document.getElementById("all-theme-data"));
       const theme =
         savedTheme === "light" || savedTheme === "dark"
           ? savedTheme
-          : matchMedia("(prefers-color-scheme: dark)").matches
+          : allThemeMode
             ? "dark"
-            : "light";
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
 
       root.dataset.theme = theme;
       root.classList.toggle("dark", theme === "dark");

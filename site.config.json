@@ -6,7 +6,7 @@
   "tagline": "A GitHub profile README site example tagline",
   "tabName": "GitHub Profile",
   "tabSuffix": "Example Site",
-  "description": "A customizable static Astro site for rendering GitHub profile README markdown content.",
+  "description": "A configurable static Astro site for rendering GitHub profile README Markdown content with avatar & optional tagline, i18n translations, themes, styles, org badge & web icon links.",
   "theme": "all",
   "themeColor": "",
   "style": "all",

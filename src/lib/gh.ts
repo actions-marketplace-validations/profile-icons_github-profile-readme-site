@@ -17,6 +17,7 @@ export interface GitHubOrg {
   login: string;
   avatarUrl: string;
   profileUrl: string;
+  websiteUrl?: string;
 }
 
 function stripPerms(header: string): string {
@@ -85,6 +86,24 @@ function formatAttr(
     (_match: string, prefix: string, quote: string, url: string): string =>
       `${prefix}${quote}` + `${formatRelUrl(url, baseUrl)}` + `${quote}`,
   );
+}
+
+function normalizeExternalUrl(url: string): string | undefined {
+  const trimmed: string = url.trim();
+  if (!trimmed) return undefined;
+
+  const candidate: string = /^[a-z][a-z\d+.-]*:/i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed.replace(/^\/\//, "")}`;
+
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function formatRelUrl(url: string, baseUrl: string): string {
@@ -258,6 +277,7 @@ export async function fetchOrgs(orgNames: string[]): Promise<GitHubOrg[]> {
           login?: unknown;
           avatar_url?: unknown;
           html_url?: unknown;
+          blog?: unknown;
         };
         if (
           typeof orgObj.login !== "string" ||
@@ -276,11 +296,16 @@ export async function fetchOrgs(orgNames: string[]): Promise<GitHubOrg[]> {
           typeof orgObj.html_url === "string" && orgObj.html_url.trim()
             ? orgObj.html_url.trim()
             : `https://github.com/${encodeURIComponent(login)}`;
+        const websiteUrl: string | undefined =
+          typeof orgObj.blog === "string"
+            ? normalizeExternalUrl(orgObj.blog)
+            : undefined;
 
         return {
           login,
           avatarUrl: orgObj.avatar_url.trim(),
           profileUrl,
+          websiteUrl,
         };
       } catch (error) {
         const msg: string =
