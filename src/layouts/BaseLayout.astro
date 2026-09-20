@@ -1,10 +1,13 @@
 ---
 import "../style.css";
-import { resolveStyle, styleCSS } from "../lib/style";
+import type { ThemeModalTrans } from "../lib/i18n";
+import { allStylesCSS, resolveStyle, styleCSS } from "../lib/style";
 import {
+  allThemesCSS,
   resolveTheme,
   resolveThemeColor,
   themeAccentCSS,
+  themeBackgrounds,
   themeBG,
   themeColorCSS,
   themeColorTone,
@@ -15,7 +18,9 @@ interface TransClient {
   locale: string;
   title: string;
   tagline: string;
+  themeModal: ThemeModalTrans;
   readmeHTML: string;
+  version?: string;
 }
 
 interface Props {
@@ -61,18 +66,20 @@ const styleSelection = resolveStyle(style);
 const fixedThemeColor: string | undefined =
   themeSelection.type === "default" ? resolvedThemeColor : undefined;
 const accentThemeColor: string | undefined =
-  themeSelection.type === "name" ? resolvedThemeColor : undefined;
+  themeSelection.type !== "default" ? resolvedThemeColor : undefined;
 const fixedThemeTone: "light" | "dark" | undefined = fixedThemeColor
   ? themeColorTone(fixedThemeColor)
   : undefined;
 const selectedThemeName: string | undefined =
-  themeSelection.type === "name" ? themeSelection.name : undefined;
+  themeSelection.type !== "default" ? themeSelection.name : undefined;
 const selectedStyleName: string | undefined =
-  styleSelection.type === "named" ? styleSelection.name : undefined;
+  styleSelection.type !== "default" ? styleSelection.name : undefined;
 const themeCss: string | undefined =
   themeSelection.type === "name"
     ? themeCSS(themeSelection.name, themeSelection.light, themeSelection.dark)
-    : undefined;
+    : themeSelection.type === "all"
+      ? allThemesCSS(themeSelection.names)
+      : undefined;
 const themeColorInlineCss: string | undefined =
   fixedThemeColor && fixedThemeTone
     ? themeColorCSS(fixedThemeColor, fixedThemeTone, !selectedStyleName)
@@ -82,13 +89,35 @@ const themeColorInlineCss: string | undefined =
 const themeStyleCss: string | undefined =
   styleSelection.type === "named"
     ? styleCSS(styleSelection.name, styleSelection.style)
-    : undefined;
+    : styleSelection.type === "all"
+      ? allStylesCSS(styleSelection.names)
+      : undefined;
 const lightThemeColor: string | undefined =
   resolvedThemeColor ??
-  (themeSelection.type === "name" ? themeBG(themeSelection.light) : undefined);
+  (themeSelection.type !== "default"
+    ? themeBG(themeSelection.light)
+    : undefined);
 const darkThemeColor: string | undefined =
   resolvedThemeColor ??
-  (themeSelection.type === "name" ? themeBG(themeSelection.dark) : undefined);
+  (themeSelection.type !== "default"
+    ? themeBG(themeSelection.dark)
+    : undefined);
+const allThemeData: string | undefined =
+  themeSelection.type === "all"
+    ? JSON.stringify({
+        names: themeSelection.names,
+        defaultName: themeSelection.name,
+        colors: themeBackgrounds(themeSelection.names),
+        themeColor: resolvedThemeColor,
+      }).replace(/</g, "\\u003c")
+    : undefined;
+const allStyleData: string | undefined =
+  styleSelection.type === "all"
+    ? JSON.stringify({
+        names: styleSelection.names,
+        defaultName: styleSelection.name,
+      }).replace(/</g, "\\u003c")
+    : undefined;
 const jsonLd: string | undefined = data
   ? JSON.stringify(data).replace(/</g, "\\u003c")
   : undefined;
@@ -119,24 +148,181 @@ const i18n: string | undefined =
     <meta name="color-scheme" content={fixedThemeTone ?? "light dark"}>
 
     {lightThemeColor && (
-      <meta
-          name="theme-color"
-          content={lightThemeColor}
-          data-light={lightThemeColor}
-          data-dark={darkThemeColor ?? lightThemeColor}
-      />
-  )}
+  <meta
+    name="theme-color"
+    content={lightThemeColor}
+    data-light={lightThemeColor}
+    data-dark={darkThemeColor ?? lightThemeColor}
+  />
+)}
 
     {themeCss && <style is:inline set:html={themeCss} />}
     {themeStyleCss && <style is:inline set:html={themeStyleCss} />}
+    {allThemeData && (
+  <script
+    id="all-theme-data"
+    type="application/json"
+    is:inline
+    set:html={allThemeData}
+  />
+)}
+    {allStyleData && (
+  <script
+    id="all-style-data"
+    type="application/json"
+    is:inline
+    set:html={allStyleData}
+  />
+)}
+    <script is:inline>
+    (() => {
+      const root = document.documentElement;
+      const dataElement = document.getElementById("all-theme-data");
+      if (!dataElement) return;
+
+      try {
+        const payload = JSON.parse(dataElement.textContent ?? "{}");
+        const names = Array.isArray(payload.names)
+          ? payload.names.filter(
+              (name) => typeof name === "string" && Boolean(name.trim()),
+            )
+          : [];
+        if (!names.length) return;
+
+        const colors =
+          payload.colors && typeof payload.colors === "object"
+            ? payload.colors
+            : {};
+        const fixedColor =
+          typeof payload.themeColor === "string" && payload.themeColor
+            ? payload.themeColor
+            : null;
+        const isKnown = (name) => names.includes(name);
+        const defaultName =
+          typeof payload.defaultName === "string" &&
+          isKnown(payload.defaultName)
+            ? payload.defaultName
+            : names[0];
+        let current = defaultName;
+
+        try {
+          const saved = localStorage.getItem("gh-profile-site-theme");
+          if (saved && isKnown(saved)) current = saved;
+        } catch {
+          // pass
+        }
+
+        const syncMeta = () => {
+          const themeMeta = document.querySelector('meta[name="theme-color"]');
+          if (!(themeMeta instanceof HTMLMetaElement)) return;
+
+          const entry = colors[current] ?? {};
+          const light = fixedColor ?? entry.light;
+          const dark = fixedColor ?? entry.dark ?? light;
+          if (light) themeMeta.dataset.light = light;
+          if (dark) themeMeta.dataset.dark = dark;
+
+          const color = root.classList.contains("dark") ? dark : light;
+          if (color) themeMeta.content = color;
+        };
+
+        const applyTheme = (name, persist = false) => {
+          if (!isKnown(name)) return;
+          current = name;
+          root.dataset.siteTheme = name;
+          syncMeta();
+
+          if (persist) {
+            try {
+              localStorage.setItem("gh-profile-site-theme", name);
+            } catch {
+              // pass
+            }
+          }
+
+          window.dispatchEvent(
+            new CustomEvent("site-theme-change", {
+              detail: { theme: name },
+            }),
+          );
+        };
+
+        applyTheme(current);
+        window.addEventListener("site-theme-select", (event) => {
+          const theme = event?.detail?.theme;
+          if (typeof theme === "string") applyTheme(theme, true);
+        });
+        window.addEventListener("readme-theme-change", syncMeta);
+        window.addEventListener("pageshow", syncMeta);
+      } catch (error) {
+        console.error("Failed to initialize all-theme mode:", error);
+      }
+    })();
+    </script>
+    <script is:inline>
+    (() => {
+      const root = document.documentElement;
+      const dataElement = document.getElementById("all-style-data");
+      if (!dataElement) return;
+
+      try {
+        const payload = JSON.parse(dataElement.textContent ?? "{}");
+        const names = Array.isArray(payload.names)
+          ? payload.names.filter(
+              (name) => typeof name === "string" && Boolean(name.trim()),
+            )
+          : [];
+        if (!names.length) return;
+
+        const isKnown = (name) => names.includes(name);
+        const defaultName =
+          typeof payload.defaultName === "string" &&
+          isKnown(payload.defaultName)
+            ? payload.defaultName
+            : names[0];
+        let current = defaultName;
+
+        try {
+          const saved = localStorage.getItem("gh-profile-site-style");
+          if (saved && isKnown(saved)) current = saved;
+        } catch {
+          // pass
+        }
+
+        const applyStyle = (name, persist = false) => {
+          if (!isKnown(name)) return;
+          current = name;
+          root.dataset.themeStyle = name;
+
+          if (persist) {
+            try {
+              localStorage.setItem("gh-profile-site-style", name);
+            } catch {
+              // pass
+            }
+          }
+
+          window.dispatchEvent(
+            new CustomEvent("site-style-change", {
+              detail: { style: name },
+            }),
+          );
+        };
+
+        applyStyle(current);
+        window.addEventListener("site-style-select", (event) => {
+          const style = event?.detail?.style;
+          if (typeof style === "string") applyStyle(style, true);
+        });
+        window.addEventListener("pageshow", () => applyStyle(current));
+      } catch (error) {
+        console.error("Failed to initialize all-style mode:", error);
+      }
+    })();
+    </script>
     {i18n && (
-      <script
-          id="i18n-data"
-          type="application/json"
-          is:inline
-          set:html={i18n}
-          />
-  )}
+  <script id="i18n-data" type="application/json" is:inline set:html={i18n} />
+)}
 
     <script is:inline>
     (() => {
@@ -165,6 +351,16 @@ const i18n: string | undefined =
         const localeMap = new Map(
           locales.map((entry) => [entry.localeNorm, entry]),
         );
+        const isThemeModal = (value) =>
+          value &&
+          typeof value === "object" &&
+          typeof value.title === "string" &&
+          typeof value.description === "string" &&
+          typeof value.mode === "string" &&
+          typeof value.style === "string" &&
+          typeof value.searchThemes === "string" &&
+          typeof value.previewTitle === "string" &&
+          typeof value.previewHTML === "string";
         const srcRaw = payload.source;
         const src =
           srcRaw &&
@@ -172,6 +368,7 @@ const i18n: string | undefined =
           typeof srcRaw.locale === "string" &&
           typeof srcRaw.title === "string" &&
           typeof srcRaw.tagline === "string" &&
+          isThemeModal(srcRaw.themeModal) &&
           typeof srcRaw.readmeHTML === "string"
             ? {
                 ...srcRaw,
@@ -191,7 +388,32 @@ const i18n: string | undefined =
         }
 
         const transBase = String(payload.transBase ?? "");
+        const transVersion =
+          typeof src.version === "string" ? src.version.trim() : "";
         const transCache = new Map([[src.localeNorm, Promise.resolve(src)]]);
+        const readmeTemplateCache = new Map();
+
+        const compileReadmeTemplate = (translation) => {
+          const localeKey = translation?.localeNorm;
+          if (!localeKey || readmeTemplateCache.has(localeKey)) return;
+
+          const template = document.createElement("template");
+          template.innerHTML = translation.readmeHTML;
+          readmeTemplateCache.set(localeKey, template);
+        };
+
+        const scheduleReadmeTemplate = (translation) => {
+          if (!translation?.localeNorm) return;
+
+          const compile = () => compileReadmeTemplate(translation);
+          if ("requestIdleCallback" in window) {
+            window.requestIdleCallback(compile, { timeout: 1200 });
+          } else {
+            setTimeout(compile, 0);
+          }
+        };
+
+        scheduleReadmeTemplate(src);
 
         const localeCache = new Map();
         const localeInfo = (locale) => {
@@ -278,10 +500,10 @@ const i18n: string | undefined =
           const cached = transCache.get(entry.localeNorm);
           if (cached) return cached;
 
-          const request = fetch(
-            `${transBase}${encodeURIComponent(entry.locale)}.json`,
-            { cache: "force-cache" },
-          )
+          const transUrl = `${transBase}${encodeURIComponent(entry.locale)}.json${
+            transVersion ? `?v=${encodeURIComponent(transVersion)}` : ""
+          }`;
+          const request = fetch(transUrl, { cache: "no-cache" })
             .then((res) => {
               if (!res.ok) {
                 throw new Error(`HTTP ${res.status}`);
@@ -295,14 +517,22 @@ const i18n: string | undefined =
                 localeNorm(translation.locale) !== entry.localeNorm ||
                 typeof translation.title !== "string" ||
                 typeof translation.tagline !== "string" ||
+                (translation.themeModal !== undefined &&
+                  !isThemeModal(translation.themeModal)) ||
                 typeof translation.readmeHTML !== "string"
               ) {
                 throw new Error("Invalid translation payload");
               }
-              return {
+              const normalizedTranslation = {
                 ...translation,
+                themeModal: {
+                  ...src.themeModal,
+                  ...(translation.themeModal ?? {}),
+                },
                 localeNorm: entry.localeNorm,
               };
+              scheduleReadmeTemplate(normalizedTranslation);
+              return normalizedTranslation;
             })
             .catch((error) => {
               transCache.delete(entry.localeNorm);
@@ -312,6 +542,48 @@ const i18n: string | undefined =
 
           transCache.set(entry.localeNorm, request);
           return request;
+        };
+
+        const followingLocale = (currentNorm) => {
+          const currentIndex = locales.findIndex(
+            ({ localeNorm: entryNorm }) => entryNorm === currentNorm,
+          );
+          return locales[(currentIndex + 1) % locales.length] ?? srcEntry;
+        };
+
+        const warmFollowingLocale = (currentNorm) => {
+          const next = followingLocale(currentNorm);
+          if (next.localeNorm !== src.localeNorm) {
+            void loadTrans(next);
+          }
+        };
+
+        const warmRemainingTranslations = (currentNorm) => {
+          const queue = locales.filter(
+            ({ localeNorm: entryNorm }) =>
+              entryNorm !== currentNorm &&
+              entryNorm !== src.localeNorm &&
+              entryNorm !== followingLocale(currentNorm).localeNorm,
+          );
+
+          const warmNext = () => {
+            const entry = queue.shift();
+            if (!entry) return;
+
+            void loadTrans(entry).finally(() => {
+              if ("requestIdleCallback" in window) {
+                window.requestIdleCallback(warmNext, { timeout: 1500 });
+              } else {
+                setTimeout(warmNext, 16);
+              }
+            });
+          };
+
+          if ("requestIdleCallback" in window) {
+            window.requestIdleCallback(warmNext, { timeout: 1500 });
+          } else {
+            setTimeout(warmNext, 0);
+          }
         };
 
         const applyTrans = (translation, isReplaceReadme = false) => {
@@ -329,17 +601,60 @@ const i18n: string | undefined =
             ogTitle.setAttribute("content", translation.title);
           }
 
-          const tagline = document.querySelector("[data-i18n-tagline]");
-          if (tagline) {
-            const value = translation.tagline.trim();
-            tagline.textContent = value;
-            tagline.hidden = !value;
+          const taglines = document.querySelectorAll("[data-i18n-tagline]");
+          const taglineValue = translation.tagline.trim();
+          for (const tagline of taglines) {
+            tagline.textContent = taglineValue;
+            tagline.hidden = !taglineValue;
+          }
+
+          const setThemeModalText = (selector, value) => {
+            for (const element of document.querySelectorAll(selector)) {
+              element.textContent = value;
+            }
+          };
+          const themeModal = translation.themeModal;
+          setThemeModalText("[data-i18n-theme-modal-title]", themeModal.title);
+          setThemeModalText(
+            "[data-i18n-theme-modal-description]",
+            themeModal.description,
+          );
+          setThemeModalText("[data-i18n-theme-modal-mode]", themeModal.mode);
+          setThemeModalText("[data-i18n-theme-modal-style]", themeModal.style);
+          setThemeModalText(
+            "[data-i18n-theme-modal-search]",
+            themeModal.searchThemes,
+          );
+          setThemeModalText(
+            "[data-i18n-theme-modal-preview-title]",
+            themeModal.previewTitle,
+          );
+          setThemeModalText(
+            "[data-i18n-theme-palette]",
+            themeModal.themePalette ?? src.themeModal.themePalette,
+          );
+          setThemeModalText(
+            "[data-i18n-style-layers]",
+            themeModal.styleLayers ?? src.themeModal.styleLayers,
+          );
+          for (const previewBody of document.querySelectorAll(
+            "[data-i18n-theme-modal-preview-body]",
+          )) {
+            previewBody.innerHTML = themeModal.previewHTML;
           }
 
           const readme = document.querySelector("[data-i18n-readme]");
           if (readme && isReplaceReadme) {
             window.dispatchEvent(new Event("i18n-before-readme"));
-            readme.innerHTML = translation.readmeHTML;
+
+            const template = readmeTemplateCache.get(translation.localeNorm);
+            if (template instanceof HTMLTemplateElement) {
+              readme.replaceChildren(template.content.cloneNode(true));
+            } else {
+              readme.innerHTML = translation.readmeHTML;
+              scheduleReadmeTemplate(translation);
+            }
+
             window.dispatchEvent(
               new CustomEvent("i18n-toggle-readme", {
                 detail: { locale },
@@ -357,10 +672,7 @@ const i18n: string | undefined =
           // pass
         }
 
-        const findInitLocale = () => {
-          const saved = localeMatch(savedLocale);
-          if (saved) return saved;
-
+        const findBrowserLocale = () => {
           const browserLocales =
             Array.isArray(navigator.languages) && navigator.languages.length
               ? navigator.languages
@@ -371,8 +683,16 @@ const i18n: string | undefined =
             if (matched) return matched;
           }
 
-          return localeMatch(payload.defLanguage) ?? srcEntry;
+          return undefined;
         };
+
+        const savedLocaleEntry = () => localeMatch(savedLocale);
+
+        const findInitLocale = () =>
+          savedLocaleEntry() ??
+          findBrowserLocale() ??
+          localeMatch(payload.defLanguage) ??
+          srcEntry;
 
         let selectedLocaleNorm = src.localeNorm;
         let selectionRun = 0;
@@ -385,6 +705,7 @@ const i18n: string | undefined =
 
           const run = ++selectionRun;
           selectedLocaleNorm = entry.localeNorm;
+          warmFollowingLocale(entry.localeNorm);
 
           if (persist) {
             savedLocale = entry.localeNorm;
@@ -425,6 +746,7 @@ const i18n: string | undefined =
           persist: false,
           replaceReadme: !isInitSrc,
         });
+        warmRemainingTranslations(initialEntry.localeNorm);
 
         window.addEventListener("i18n-toggle", () => {
           const curIdx = locales.findIndex(
@@ -437,7 +759,40 @@ const i18n: string | undefined =
             replaceReadme: true,
           });
         });
+
+        window.addEventListener("i18n-select", (event) => {
+          const requestedLocale = event?.detail?.locale;
+          if (typeof requestedLocale !== "string") return;
+
+          const entry = localeMatch(requestedLocale);
+          if (!entry) return;
+
+          void selectLocale(entry, {
+            persist: true,
+            replaceReadme: true,
+          });
+        });
+
+        const followBrowserLocale = () => {
+          if (savedLocaleEntry()) return false;
+
+          const next =
+            findBrowserLocale() ?? localeMatch(payload.defLanguage) ?? srcEntry;
+
+          if (next.localeNorm === selectedLocaleNorm) return false;
+
+          void selectLocale(next, {
+            persist: false,
+            replaceReadme: true,
+          });
+          return true;
+        };
+
+        window.addEventListener("languagechange", followBrowserLocale);
+
         window.addEventListener("pageshow", () => {
+          if (followBrowserLocale()) return;
+
           const current = localeMap.get(selectedLocaleNorm) ?? srcEntry;
           const applied = localeNorm(root.dataset.appliedLocale);
           if (applied && applied !== current.localeNorm) {
@@ -472,12 +827,15 @@ const i18n: string | undefined =
         // pass
       }
 
+      const allThemeMode = Boolean(document.getElementById("all-theme-data"));
       const theme =
         savedTheme === "light" || savedTheme === "dark"
           ? savedTheme
-          : matchMedia("(prefers-color-scheme: dark)").matches
+          : allThemeMode
             ? "dark"
-            : "light";
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
 
       root.dataset.theme = theme;
       root.classList.toggle("dark", theme === "dark");
@@ -969,37 +1327,34 @@ const i18n: string | undefined =
 
     <link
       rel="icon"
-      href={favUrl ??
-          `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}favicon.svg`}
+      href={favUrl ?? `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}favicon.svg`}
     >
 
     {description && (
-      <>
-        <meta name="description" content={description} />
-        <meta property="og:description" content={description} />
-      </>
-  )}
+  <>
+    <meta name="description" content={description} />
+    <meta property="og:description" content={description} />
+  </>
+)}
 
     {baseUrl && (
-      <>
-        <link rel="canonical" href={baseUrl} />
-        <meta property="og:url" content={baseUrl} />
-      </>
-  )}
+  <>
+    <link rel="canonical" href={baseUrl} />
+    <meta property="og:url" content={baseUrl} />
+  </>
+)}
 
     <meta property="og:type" content="profile">
     <meta property="og:title" content={title}>
 
     {imageUrl && (
-      <>
-        <meta property="og:image" content={imageUrl} />
-        {imageAlt && <meta property="og:image:alt" content={imageAlt} />}
-      </>
-  )}
+  <>
+    <meta property="og:image" content={imageUrl} />
+    {imageAlt && <meta property="og:image:alt" content={imageAlt} />}
+  </>
+)}
 
-    {jsonLd && (
-      <script is:inline type="application/ld+json" set:html={jsonLd} />
-  )}
+    {jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd} />}
   </head>
 
   <body>

@@ -1,6 +1,6 @@
 # GitHub Profile README Site
 
-Deploy your GitHub user or organization profile `README.md` as a static Astro site using Actions with:
+Deploy your GitHub user or organization profile `README.md` as a configurable static Astro site using Actions with:
 
 - profile avatar
 - (optional) tagline
@@ -137,26 +137,66 @@ To display your profile README content in the site, create/edit `site.config.jso
 
 ### Theme
 
-Select from any one of the available themes:
+<details>
+<summary>Select from any one of the available themes:</summary>
 
+* `aura`
+* `ayu`
+* `catppuccin`
+* `cobalt2`
+* `dracula`
+* `everforest`
+* `flexoki`
+* `github`
 * `github-colorblind`
-* `github-default`
-* `github-dimmed`
 * `github-high-contrast`
 * `github-soft`
-* `github-tritanopia`
+* `gruvbox`
+* `horizon`
+* `iceberg`
+* `kanagawa`
+* `material`
+* `monokai`
+* `moonlight`
+* `night-owl`
+* `nightfox`
+* `nord`
+* `one-dark`
+* `oxocarbon`
+* `palenight`
+* `papercolor`
+* `poimandres`
+* `rose-pine`
+* `solarized`
+* `synthwave84`
+* `tokyo-night`
+* `tomorrow`
+* `vesper`
+* `vitesse`
+* `zenburn`
+</details>
 
 Each theme supports light and dark mode. CSS can be found in `src/themes.json`.
 
 ### Style
 
-Select from any one of the available styles:
+<details>
+<summary>Select from any one of the available styles:</summary>
 
 * `aurora`
+* `blueprint`
+* `crosshatch`
 * `gradient`
+* `grain`
 * `grid`
 * `glow`
+* `halftone`
+* `mesh`
+* `paper`
 * `solid`
+* `spotlight`
+* `stars`
+</details>
 
 CSS can be found in `src/styles.json`.
 
@@ -444,7 +484,7 @@ Each entry in the **links** `{key: value}` object maps a platform/icon ID (`key`
   "tagline": "Just a guy who likes ☕",
   "tabName": "Adam Ross",
   "tabSuffix": "GitHub Profile",
-  "description": "A static profile site for rendering GitHub README markdown content with avatar, tagline & icon links",
+  "description": "A static GitHub profile site template for rendering README markdown content with avatar, tagline, org & icon links.",
   "theme": "github-soft",
   "themeColor": "",
   "style": "aurora",
@@ -503,9 +543,6 @@ npm run dev
 
 ```Bash
 npm run build
-```
-
-```Bash
 npm run preview
 ```
 
@@ -514,5 +551,5 @@ npm run preview
 Before making a Pull Request, ensure it addresses an Issue, and verify the branch passes:
 
 ```Bash
-npm run quality:fix
+npm run verify:fix
 ```

@@ -9,10 +9,8 @@ interface Props {
 const { imageUrl, profileUrl, tabName, tagline } = Astro.props;
 ---
 
-<div class="profile-avatar-block">
-  <div
-    class="profile-avatar-header flex items-center justify-center gap-1 sm:gap-2"
-  >
+<div class="mb-[0.8rem] text-center">
+  <div class="mb-[0.65rem] flex items-center justify-center gap-1 sm:gap-2">
     <a
       href={profileUrl}
       class="group rounded-full outline-none focus-visible:ring-4 focus-visible:ring-sky-500/40"
@@ -30,8 +28,11 @@ const { imageUrl, profileUrl, tabName, tagline } = Astro.props;
   </div>
 
   {tagline && (
-      <p class="profile-tagline" data-i18n-tagline>
-        {tagline?.trim()}
-      </p>
-    )}
+  <p
+    class="mx-auto max-w-[34rem] px-4 text-[0.95rem] font-medium leading-[1.5] tracking-[0.01em] text-[var(--tagline-text)] [text-wrap:balance] sm:text-base"
+    data-i18n-tagline
+  >
+    {tagline?.trim()}
+  </p>
+)}
 </div>

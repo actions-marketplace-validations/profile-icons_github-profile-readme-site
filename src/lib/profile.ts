@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { siteConfig } from "../config";
+import { type ThemeModalTrans, themeModalSrc } from "./i18n";
 
 export interface ReadmeMD {
   html: string;
@@ -13,13 +14,16 @@ interface Profile {
   srcHash: string;
   tabSuffix: string;
   tagline: string;
+  themeModal: ThemeModalTrans;
   readme: ReadmeMD;
 }
 
 export interface ProfileTrans {
   readme: ReadmeMD;
   tagline: string;
+  themeModal: ThemeModalTrans;
   title: string;
+  version: string;
 }
 
 const DEFAULT_TAB_SUFFIX: string = "GitHub Profile";
@@ -55,12 +59,26 @@ async function readGenDoc(locale: string): Promise<Profile> {
     }
 
     const profile = parsed as Partial<Profile>;
+    const modal = profile.themeModal;
+    const isThemeModal = modal !== undefined && modal !== null;
+    const isThemeModalValid =
+      !isThemeModal ||
+      (typeof modal === "object" &&
+        typeof modal.title === "string" &&
+        typeof modal.description === "string" &&
+        typeof modal.mode === "string" &&
+        typeof modal.style === "string" &&
+        typeof modal.searchThemes === "string" &&
+        typeof modal.previewTitle === "string" &&
+        typeof modal.previewHTML === "string");
+
     if (
       typeof profile.locale !== "string" ||
       typeof profile.localeSrc !== "string" ||
       typeof profile.srcHash !== "string" ||
       typeof profile.tabSuffix !== "string" ||
       typeof profile.tagline !== "string" ||
+      !isThemeModalValid ||
       !profile.readme ||
       typeof profile.readme !== "object" ||
       typeof profile.readme.html !== "string" ||
@@ -68,7 +86,13 @@ async function readGenDoc(locale: string): Promise<Profile> {
     ) {
       throw new Error(`Generated translation file is invalid: ${path}`);
     }
-    return profile as Profile;
+
+    return {
+      ...profile,
+      themeModal: isThemeModal
+        ? { ...themeModalSrc, ...(modal as Partial<ThemeModalTrans>) }
+        : themeModalSrc,
+    } as Profile;
   } catch (error) {
     if (
       error instanceof Error &&
@@ -95,7 +119,9 @@ export function getTranslations(locale: string): Promise<ProfileTrans> {
         `${siteConfig.tabName || siteConfig.githubName}` +
         ` — ${gen.tabSuffix || DEFAULT_TAB_SUFFIX}`,
       tagline: gen.tagline,
+      themeModal: gen.themeModal,
       readme: gen.readme,
+      version: gen.srcHash,
     }),
   );
 
